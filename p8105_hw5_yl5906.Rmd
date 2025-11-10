@@ -1,0 +1,304 @@
+---
+title: "p8105_hw5_yl5906"
+author: "Yujie Li"
+date: "2025-11-10"
+output: github_document
+---
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(rvest)
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+## Problem 1: Birthday Problem
+```{r birthday_function}
+check_birthday = function(n) {
+  birthdays = sample(1:365, n, replace = TRUE)
+  has_duplicate = length(unique(birthdays)) < n
+  has_duplicate
+}
+```
+
+```{r test_birthday}
+check_birthday(20)
+check_birthday(50)
+```
+
+
+```{r birthday_simulation}
+#Run simulation for group sizes 2 to 50, with 10000 iterations each.
+set.seed(327)
+
+birthday_sim = 
+  expand_grid(
+    group_size = 2:50,
+    iter = 1:10000
+  ) |> 
+  mutate(
+    result = map_lgl(group_size, check_birthday)
+  ) |> 
+  group_by(group_size) |> 
+  summarize(
+    probability = mean(result)
+  )
+```
+
+
+```{r birthday_plot}
+birthday_sim |> 
+  ggplot(aes(x = group_size, y = probability)) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Probability of Shared Birthday by Group Size",
+    x = "Group Size",
+    y = "Probability"
+  )
+```
+
+the group size increases, the probability that at least two individuals share a birthday increase rapidly. For a group of 23 people, this probability exceeds 50%. When the group consists of 50 individuals, the probability approaches `r round(birthday_sim |> filter(group_size == 50) |> pull(probability), 3)`. This demonstrates the famous "birthday paradox"
+
+
+## Problem 2: Power Simulation
+
+```{r sim_function}
+#function simulate data and run t-test.
+sim_t_test = function(mu, n = 30, sigma = 5) {
+  
+  sim_data = rnorm(n, mean = mu, sd = sigma)
+  
+  test_result = t.test(sim_data, mu = 0)
+  
+  test_result |> 
+    broom::tidy() |> 
+    select(estimate, p.value)
+  
+}
+```
+
+
+```{r test_sim}
+#Test function.
+sim_t_test(mu = 0)
+```
+
+
+```{r mu_zero}
+#Generate 5000 datasets from the model with μ = 0
+set.seed(327)
+
+mu_zero_results = 
+  expand_grid(
+    mu = 0,
+    iter = 1:5000
+  ) |> 
+  mutate(
+    results = map(mu, sim_t_test)
+  ) |> 
+  unnest(results)
+```
+
+
+```{r power_simulation}
+#Repeat for μ = {1, 2, 3, 4, 5, 6}
+set.seed(327)
+
+power_results = 
+  expand_grid(
+    mu = 0:6,
+    iter = 1:5000
+  ) |> 
+  mutate(
+    results = map(mu, sim_t_test)
+  ) |> 
+  unnest(results) |> 
+  mutate(
+    rejected = p.value < 0.05
+  )
+```
+
+```{r power_plot}
+#plot
+power_results |> 
+  group_by(mu) |> 
+  summarize(
+    power = mean(rejected)
+  ) |> 
+  ggplot(aes(x = mu, y = power)) +
+  geom_point() +
+  geom_line() +
+  labs(
+    title = "Power vs Effect Size",
+    x = "True Value of μ",
+    y = "Power"
+  )
+```
+
+```{r power_summary, include = FALSE}
+power_by_mu = 
+  power_results |> 
+  group_by(mu) |> 
+  summarize(
+    power = mean(rejected)
+  )
+```
+
+
+association between effect size and power:
+As the effect size increases, power increases. When μ = 0, power is `r round(power_by_mu |> filter(mu == 0) |> pull(power), 2)` (approximately the Type I error rate of 0.05). Power increases steadily, reaching `r round(power_by_mu |> filter(mu == 1) |> pull(power), 2)` at μ = 1, `r round(power_by_mu |> filter(mu == 2) |> pull(power), 2)` at μ = 2, `r round(power_by_mu |> filter(mu == 3) |> pull(power), 2)` at μ = 3, and approaches 1.0 for μ ≥ 4 (power = `r round(power_by_mu |> filter(mu == 4) |> pull(power), 2)` at μ = 4). Larger effect sizes are easier to detect.
+
+
+```{r estimate_plot}
+#Average estimate for all samples
+avg_all = 
+  power_results |> 
+  group_by(mu) |> 
+  summarize(
+    avg_estimate = mean(estimate)
+  )
+
+#Average estimate for rejected samples only
+avg_rejected = 
+  power_results |> 
+  filter(rejected == TRUE) |> 
+  group_by(mu) |> 
+  summarize(
+    avg_estimate = mean(estimate)
+  )
+
+#Combine and plot
+avg_all |> 
+  ggplot(aes(x = mu, y = avg_estimate)) +
+  geom_point(aes(color = "All samples"), size = 3) +
+  geom_line(aes(color = "All samples"), linewidth = 1.2) +
+  geom_point(data = avg_rejected, aes(color = "Rejected only"), size = 3) +
+  geom_line(data = avg_rejected, aes(color = "Rejected only"), linewidth = 1.2) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", linewidth = 0.8) +
+  labs(
+    title = "Average Estimate vs True Value",
+    x = "True Value of μ",
+    y = "Average Estimate of μ̂",
+    color = "Sample"
+  )
+```
+
+Is the sample average of μ̂ across tests for which the null is rejected approximately equal to the true value of μ? Why or why not?
+
+No. When power is low (μ = 1, 2, 3), the average estimate among rejected samples is noticeably higher than the true μ. For example, when μ = 1, the average rejected estimate is approximately `r power_results |> filter(mu == 1, rejected == TRUE) |> summarize(mean(estimate)) |> pull() |> round(2)`, much higher than 1.
+
+This occurs because when power is low, only extreme estimates lead to rejection, creating selection bias. As μ increases and power approaches 1, nearly all samples are rejected, reducing bias. The average estimate among rejected samples then converges to the true μ. This is known as the "winner's curse."
+
+
+
+## Problem 3: Homicide Data
+```{r load_data, message = FALSE}
+homicide_df = read_csv("D:/Columbia/2025fall/Data Science 1/HW5/p8105_hw5_yl5906/homicide-data.csv")
+```
+
+```{r describe_data}
+homicide_df
+```
+
+The raw data contains `r nrow(homicide_df)` observations of homicides across `r homicide_df |> pull(city) |> n_distinct()` cities in the United States. Variables include the victim's name, race, age, and sex. the date the homicide was reported; the location (city, state, latitude, and longitude); and the disposition of the case (whether it resulted in an arrest or remains unsolved).
+
+
+```{r summarize_homicides}
+#create city_state variable and summary
+homicide_summary = 
+  homicide_df |> 
+  mutate(
+    city_state = str_c(city, ", ", state),
+    unsolved = disposition %in% c("Closed without arrest", "Open/No arrest")
+  ) |> 
+  group_by(city_state) |> 
+  summarize(
+    total_homicides = n(),
+    unsolved_homicides = sum(unsolved)
+  )
+
+homicide_summary
+```
+
+
+```{r baltimore_test}
+#use prop.test to estimate the proportion
+baltimore_df = 
+  homicide_summary |> 
+  filter(city_state == "Baltimore, MD")
+
+baltimore_test = 
+  prop.test(
+    x = baltimore_df |> pull(unsolved_homicides),
+    n = baltimore_df |> pull(total_homicides)
+  )
+
+baltimore_test |> 
+  broom::tidy() |> 
+  select(estimate, conf.low, conf.high)
+```
+
+
+```{r all_cities_test}
+#run for each
+prop_test_city = function(city_df) {
+  
+  test_result = 
+    prop.test(
+      x = city_df |> pull(unsolved_homicides),
+      n = city_df |> pull(total_homicides)
+    )
+  
+  test_result |> 
+    broom::tidy() |> 
+    select(estimate, conf.low, conf.high)
+  
+}
+
+all_cities = 
+  homicide_summary |> 
+  nest(data = c(total_homicides, unsolved_homicides)) |> 
+  mutate(
+    test_results = map(data, prop_test_city)
+  ) |> 
+  select(-data) |> 
+  unnest(test_results)
+
+all_cities
+```
+
+
+```{r city_plot, fig.width = 10, fig.height = 8}
+#create plot shows the estimates and CI for each city
+all_cities |> 
+  mutate(
+    city_state = fct_reorder(city_state, estimate)
+  ) |> 
+  ggplot(aes(x = city_state, y = estimate)) +
+  geom_point() +
+  geom_errorbar(aes(ymin = conf.low, ymax = conf.high)) +
+  labs(
+    title = "Proportion of Unsolved Homicides by City",
+    x = "City",
+    y = "Proportion Unsolved"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+```
+The plot shows substantial variation in unsolved homicide proportions across cities. Chicago, IL has the highest proportion at approximately `r all_cities |> filter(city_state == "Chicago, IL") |> pull(estimate) |> round(2)`, while Richmond, VA has among the lowest at approximately `r all_cities |> filter(city_state == "Richmond, VA") |> pull(estimate) |> round(2)`. Most cities fall in the range of 0.3 to 0.6 for the proportion of unsolved homicides.
