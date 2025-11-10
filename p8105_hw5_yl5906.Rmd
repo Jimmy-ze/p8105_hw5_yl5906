@@ -74,7 +74,7 @@ birthday_sim |>
   )
 ```
 
-the group size increases, the probability that at least two individuals share a birthday increase rapidly. For a group of 23 people, this probability exceeds 50%. When the group consists of 50 individuals, the probability approaches `r round(birthday_sim |> filter(group_size == 50) |> pull(probability), 3)`. This demonstrates the famous "birthday paradox"
+the group size increases, the probability that at least two individuals share a birthday increase rapidly. For a group of 23 people, this probability exceeds 50%. When the group consists of 50 individuals, the probability approaches `r round(birthday_sim |> filter(group_size == 50) |> pull(probability), 3)`. Like the theory birthday paradox.
 
 
 ## Problem 2: Power Simulation
@@ -163,7 +163,7 @@ power_by_mu =
 
 
 association between effect size and power:
-As the effect size increases, power increases. When μ = 0, power is `r round(power_by_mu |> filter(mu == 0) |> pull(power), 2)` (approximately the Type I error rate of 0.05). Power increases steadily, reaching `r round(power_by_mu |> filter(mu == 1) |> pull(power), 2)` at μ = 1, `r round(power_by_mu |> filter(mu == 2) |> pull(power), 2)` at μ = 2, `r round(power_by_mu |> filter(mu == 3) |> pull(power), 2)` at μ = 3, and approaches 1.0 for μ ≥ 4 (power = `r round(power_by_mu |> filter(mu == 4) |> pull(power), 2)` at μ = 4). Larger effect sizes are easier to detect.
+As the effect size increases, power increases. When μ = 0, power is `r round(power_by_mu |> filter(mu == 0) |> pull(power), 2)` (equal the Type I error rate 0.05). Power increases steadily, reaching `r round(power_by_mu |> filter(mu == 1) |> pull(power), 2)` at μ = 1, `r round(power_by_mu |> filter(mu == 2) |> pull(power), 2)` at μ = 2, `r round(power_by_mu |> filter(mu == 3) |> pull(power), 2)` at μ = 3, and approaches 1.0 for μ ≥ 4 (power = `r round(power_by_mu |> filter(mu == 4) |> pull(power), 2)` at μ = 4). Larger effect sizes are easier to detect.
 
 
 ```{r estimate_plot}
@@ -210,7 +210,7 @@ This occurs because when power is low, only extreme estimates lead to rejection,
 
 ## Problem 3: Homicide Data
 ```{r load_data, message = FALSE}
-homicide_df = read_csv("D:/Columbia/2025fall/Data Science 1/HW5/p8105_hw5_yl5906/homicide-data.csv")
+homicide_df = read_csv("data/homicide-data.csv")
 ```
 
 ```{r describe_data}
